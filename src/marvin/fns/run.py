@@ -91,6 +91,15 @@ async def run_tasks_stream(
         while not queue_handler.queue.empty():
             yield queue_handler.queue.get_nowait()
 
+        # Observe the owned background task and propagate any exception it
+        # raised. `raise_on_failure` is honored inside the orchestrator, so this
+        # only re-raises failures the orchestrator already decided to raise;
+        # this matches `run_tasks_async` instead of dropping the error after
+        # streaming its events. Early-close cancellation remains in `finally`.
+        exc = orchestrator_task.exception()
+        if exc is not None:
+            raise exc
+
     finally:
         # Optionally, cancel the orchestrator if needed.
         if not orchestrator_task.done():
